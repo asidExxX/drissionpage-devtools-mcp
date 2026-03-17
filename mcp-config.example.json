@@ -1,13 +1,16 @@
 {
   "mcpServers": {
-    "drissionpage-devtools": {
+    "chrome-devtools": {
       "command": "/absolute/path/to/drissionpage-devtools-mcp/.venv/bin/drissionpage-devtools-mcp",
       "args": [
         "--port",
         "9222",
-        "--",
-        "--hideCanvas",
-        "--blockWebrtc"
+        "--chrome-arg",
+        "--fingerprinting-canvas-image-data-noise",
+        "--chrome-arg",
+        "--webrtc-ip-handling-policy=disable_non_proxied_udp",
+        "--chrome-arg",
+        "--force-webrtc-ip-handling-policy"
       ]
     }
   }

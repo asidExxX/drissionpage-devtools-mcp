@@ -64,6 +64,82 @@ python3 -m venv .venv
 ./.venv/bin/drissionpage-devtools-mcp
 ```
 
+## mcpServers 配置
+
+如果你是拿它直接替换原来的 `chrome-devtools`，推荐这样写：
+
+```json
+{
+  "mcpServers": {
+    "chrome-devtools": {
+      "command": "/absolute/path/to/drissionpage-devtools-mcp/.venv/bin/drissionpage-devtools-mcp",
+      "args": [
+        "--port",
+        "9222",
+        "--chrome-arg",
+        "--fingerprinting-canvas-image-data-noise",
+        "--chrome-arg",
+        "--webrtc-ip-handling-policy=disable_non_proxied_udp",
+        "--chrome-arg",
+        "--force-webrtc-ip-handling-policy"
+      ]
+    }
+  }
+}
+```
+
+如果你只要最基础的浏览器接管能力，也可以只保留：
+
+```json
+{
+  "mcpServers": {
+    "chrome-devtools": {
+      "command": "/absolute/path/to/drissionpage-devtools-mcp/.venv/bin/drissionpage-devtools-mcp",
+      "args": [
+        "--port",
+        "9222"
+      ]
+    }
+  }
+}
+```
+
+如果还要把其他参数继续转发给内部的 `js-reverse-mcp`，再在最后加 `--`，例如：
+
+```json
+{
+  "mcpServers": {
+    "chrome-devtools": {
+      "command": "/absolute/path/to/drissionpage-devtools-mcp/.venv/bin/drissionpage-devtools-mcp",
+      "args": [
+        "--port",
+        "9222",
+        "--",
+        "--no-category-network"
+      ]
+    }
+  }
+}
+```
+
+## 参数说明
+
+- `--fingerprinting-canvas-image-data-noise`
+  作用：给 Canvas 指纹加噪，降低基于 canvas 渲染结果做指纹识别的稳定性。
+- `--webrtc-ip-handling-policy=disable_non_proxied_udp`
+  作用：限制 WebRTC 的非代理 UDP，避免走代理时通过 WebRTC 直连泄露真实 IP。
+- `--force-webrtc-ip-handling-policy`
+  作用：强制应用上面的 WebRTC 策略。
+
+上面这三项是当前这套集成里推荐的写法，因为浏览器是由 `DrissionPage` 先启动的。
+
+`js-reverse-mcp` 原本也支持下面两个参数：
+
+- `--hideCanvas`
+- `--blockWebrtc`
+
+但它们只在 `js-reverse-mcp` 自己负责启动浏览器时才真正生效。当前模式下浏览器已经由 `DrissionPage` 拉起，所以更推荐把等价能力直接写成 `--chrome-arg` 放在启动器这一层。
+
 ## 启动
 
 直接启动：
@@ -72,12 +148,15 @@ python3 -m venv .venv
 ./.venv/bin/drissionpage-devtools-mcp
 ```
 
-传浏览器端口和 devtools 参数：
+传浏览器端口和 Chrome 启动参数：
 
 ```bash
 ./.venv/bin/drissionpage-devtools-mcp \
   --port 9222 \
-  -- --hideCanvas --blockWebrtc --no-category-network
+  --chrome-arg --fingerprinting-canvas-image-data-noise \
+  --chrome-arg --webrtc-ip-handling-policy=disable_non_proxied_udp \
+  --chrome-arg --force-webrtc-ip-handling-policy \
+  -- --no-category-network
 ```
 
 检查安装是否正常：
@@ -88,10 +167,12 @@ python3 -m venv .venv
 
 ## MCP 配置示例
 
-见 [mcp-config.example.json](/Users/windchime/Desktop/codextemp/drissionpage-devtools-mcp/mcp-config.example.json)。
+见 `mcp-config.example.json`。
 
 ## 注意
 
+- `--chrome-arg` 是传给 `DrissionPage` 启动的浏览器实例本身的。
+- `--` 后面的参数会继续转发给内部的 `js-reverse-mcp`。
 - 不要再额外传 `--browserUrl` 或 `--wsEndpoint`，统一服务会自动设置。
 - 如果 `vendor/js-reverse-mcp/build/src/index.js` 缺失，服务会尝试在 `vendor/js-reverse-mcp` 下执行一次 `npm run build`。
 - 当前实现默认不会在退出时主动关闭已存在的浏览器实例，避免误关你正在使用的窗口。
