@@ -76,12 +76,9 @@ python3 -m venv .venv
       "args": [
         "--port",
         "9222",
-        "--chrome-arg",
-        "--fingerprinting-canvas-image-data-noise",
-        "--chrome-arg",
-        "--webrtc-ip-handling-policy=disable_non_proxied_udp",
-        "--chrome-arg",
-        "--force-webrtc-ip-handling-policy"
+        "--chrome-arg=--fingerprinting-canvas-image-data-noise",
+        "--chrome-arg=--webrtc-ip-handling-policy=disable_non_proxied_udp",
+        "--chrome-arg=--force-webrtc-ip-handling-policy"
       ]
     }
   }
@@ -153,9 +150,9 @@ python3 -m venv .venv
 ```bash
 ./.venv/bin/drissionpage-devtools-mcp \
   --port 9222 \
-  --chrome-arg --fingerprinting-canvas-image-data-noise \
-  --chrome-arg --webrtc-ip-handling-policy=disable_non_proxied_udp \
-  --chrome-arg --force-webrtc-ip-handling-policy \
+  --chrome-arg=--fingerprinting-canvas-image-data-noise \
+  --chrome-arg=--webrtc-ip-handling-policy=disable_non_proxied_udp \
+  --chrome-arg=--force-webrtc-ip-handling-policy \
   -- --no-category-network
 ```
 
@@ -172,6 +169,7 @@ python3 -m venv .venv
 ## 注意
 
 - `--chrome-arg` 是传给 `DrissionPage` 启动的浏览器实例本身的。
+- 当 `--chrome-arg` 的值本身以 `--` 开头时，推荐写成 `--chrome-arg=--xxx`。
 - `--` 后面的参数会继续转发给内部的 `js-reverse-mcp`。
 - 不要再额外传 `--browserUrl` 或 `--wsEndpoint`，统一服务会自动设置。
 - 如果 `vendor/js-reverse-mcp/build/src/index.js` 缺失，服务会尝试在 `vendor/js-reverse-mcp` 下执行一次 `npm run build`。

@@ -5,12 +5,9 @@
       "args": [
         "--port",
         "9222",
-        "--chrome-arg",
-        "--fingerprinting-canvas-image-data-noise",
-        "--chrome-arg",
-        "--webrtc-ip-handling-policy=disable_non_proxied_udp",
-        "--chrome-arg",
-        "--force-webrtc-ip-handling-policy"
+        "--chrome-arg=--fingerprinting-canvas-image-data-noise",
+        "--chrome-arg=--webrtc-ip-handling-policy=disable_non_proxied_udp",
+        "--chrome-arg=--force-webrtc-ip-handling-policy"
       ]
     }
   }

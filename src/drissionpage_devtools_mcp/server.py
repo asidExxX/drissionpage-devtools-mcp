@@ -4,6 +4,7 @@ import argparse
 import logging
 import os
 import subprocess
+import sys
 from contextlib import AsyncExitStack, asynccontextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -55,7 +56,30 @@ class ProxyState:
     child_tools: list[types.Tool] = field(default_factory=list)
 
 
+def normalize_cli_args(argv: list[str]) -> list[str]:
+    normalized: list[str] = []
+    index = 0
+
+    while index < len(argv):
+        arg = argv[index]
+        if (
+            arg == "--chrome-arg"
+            and index + 1 < len(argv)
+            and argv[index + 1].startswith("--")
+            and argv[index + 1] != "--"
+        ):
+            normalized.append(f"--chrome-arg={argv[index + 1]}")
+            index += 2
+            continue
+
+        normalized.append(arg)
+        index += 1
+
+    return normalized
+
+
 def parse_args() -> LauncherConfig:
+    argv = normalize_cli_args(sys.argv[1:])
     parser = argparse.ArgumentParser(
         description=(
             "Expose js-reverse-mcp as a single MCP server, but launch the browser "
@@ -107,7 +131,7 @@ def parse_args() -> LauncherConfig:
         default="INFO",
         help="Python logging level for the launcher.",
     )
-    args, forwarded = parser.parse_known_args()
+    args, forwarded = parser.parse_known_args(argv)
     if forwarded and forwarded[0] == "--":
         forwarded = forwarded[1:]
 
