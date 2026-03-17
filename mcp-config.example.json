@@ -1,6 +1,6 @@
 {
   "mcpServers": {
-    "chrome-devtools": {
+    "drissionpage-devtools": {
       "command": "/absolute/path/to/drissionpage-devtools-mcp/.venv/bin/drissionpage-devtools-mcp",
       "args": [
         "--port",

@@ -66,12 +66,12 @@ python3 -m venv .venv
 
 ## mcpServers 配置
 
-如果你是拿它直接替换原来的 `chrome-devtools`，推荐这样写：
+推荐这样写：
 
 ```json
 {
   "mcpServers": {
-    "chrome-devtools": {
+    "drissionpage-devtools": {
       "command": "/absolute/path/to/drissionpage-devtools-mcp/.venv/bin/drissionpage-devtools-mcp",
       "args": [
         "--port",
@@ -93,7 +93,7 @@ python3 -m venv .venv
 ```json
 {
   "mcpServers": {
-    "chrome-devtools": {
+    "drissionpage-devtools": {
       "command": "/absolute/path/to/drissionpage-devtools-mcp/.venv/bin/drissionpage-devtools-mcp",
       "args": [
         "--port",
@@ -109,7 +109,7 @@ python3 -m venv .venv
 ```json
 {
   "mcpServers": {
-    "chrome-devtools": {
+    "drissionpage-devtools": {
       "command": "/absolute/path/to/drissionpage-devtools-mcp/.venv/bin/drissionpage-devtools-mcp",
       "args": [
         "--port",
