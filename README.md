@@ -34,6 +34,15 @@
 
 ## 安装
 
+从 GitHub 拉取并安装：
+
+```bash
+git clone https://github.com/asidExxX/drissionpage-devtools-mcp.git
+cd drissionpage-devtools-mcp
+chmod +x install.sh
+./install.sh
+```
+
 一键安装：
 
 ```bash
