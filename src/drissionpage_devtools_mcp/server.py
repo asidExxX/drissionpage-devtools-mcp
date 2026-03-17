@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import asyncio
 import argparse
+import json
 import logging
 import os
 import subprocess
@@ -20,6 +22,7 @@ from mcp.server.stdio import stdio_server
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_DEVTOOLS_PROJECT = PROJECT_ROOT / "vendor" / "js-reverse-mcp"
+TOOL_SNAPSHOT_PATH = Path(__file__).with_name("tool_snapshot.json")
 DEFAULT_BROWSER_PATHS = [
     Path(
         os.environ.get(
@@ -47,13 +50,64 @@ class LauncherConfig:
     forwarded_args: list[str]
 
 
-@dataclass
-class ProxyState:
-    config: LauncherConfig
-    browser: Chromium | None = None
-    browser_url: str | None = None
-    child_session: ClientSession | None = None
-    child_tools: list[types.Tool] = field(default_factory=list)
+class DevtoolsRuntime:
+    def __init__(self, config: LauncherConfig):
+        self.config = config
+        self.browser: Chromium | None = None
+        self.browser_url: str | None = None
+        self.child_session: ClientSession | None = None
+        self.child_tools: list[types.Tool] = load_tool_snapshot()
+        self.exit_stack: AsyncExitStack | None = None
+        self.init_lock = asyncio.Lock()
+
+    def bind_exit_stack(self, stack: AsyncExitStack) -> None:
+        self.exit_stack = stack
+
+    async def ensure_child_session(self) -> None:
+        if self.child_session is not None:
+            return
+
+        if self.exit_stack is None:
+            raise RuntimeError("Server lifecycle stack is not initialized.")
+
+        async with self.init_lock:
+            if self.child_session is not None:
+                return
+
+            entry = resolve_devtools_entry(self.config)
+            browser, browser_url = await anyio.to_thread.run_sync(ensure_browser, self.config)
+            logger.info("Browser is ready at %s", browser_url)
+            logger.info("Starting js-reverse-mcp via %s", entry)
+
+            server_params = build_child_command(self.config, browser_url, entry)
+            read_stream, write_stream = await self.exit_stack.enter_async_context(
+                stdio_client(server_params)
+            )
+            session = await self.exit_stack.enter_async_context(
+                ClientSession(read_stream, write_stream)
+            )
+            await session.initialize()
+
+            self.browser = browser
+            self.browser_url = browser_url
+            self.child_session = session
+            self.child_tools = await fetch_all_child_tools(session)
+            logger.info("Loaded %d devtools tools from child MCP", len(self.child_tools))
+
+    async def list_tools(self) -> list[types.Tool]:
+        return self.child_tools
+
+    async def call_tool(self, name: str, arguments: dict[str, Any]) -> types.CallToolResult:
+        await self.ensure_child_session()
+        if self.child_session is None:
+            raise RuntimeError("Child devtools MCP session is not initialized.")
+
+        result = await self.child_session.call_tool(name, arguments=arguments)
+        return types.CallToolResult(
+            content=list(result.content),
+            structuredContent=result.structuredContent,
+            isError=result.isError,
+        )
 
 
 def normalize_cli_args(argv: list[str]) -> list[str]:
@@ -177,6 +231,11 @@ def resolve_browser_path(explicit_path: str | None) -> str | None:
     return None
 
 
+def load_tool_snapshot() -> list[types.Tool]:
+    raw_tools = json.loads(TOOL_SNAPSHOT_PATH.read_text(encoding="utf-8"))
+    return [types.Tool.model_validate(tool) for tool in raw_tools]
+
+
 def resolve_devtools_entry(config: LauncherConfig) -> Path:
     if not config.devtools_project.exists():
         raise RuntimeError(f"js-reverse-mcp project was not found: {config.devtools_project}")
@@ -256,28 +315,12 @@ def build_child_command(config: LauncherConfig, browser_url: str, entry: Path) -
     )
 
 
-def make_server(state: ProxyState) -> Server:
+def make_server(runtime: DevtoolsRuntime) -> Server:
     @asynccontextmanager
     async def lifespan(_: Server):
         async with AsyncExitStack() as stack:
-            entry = resolve_devtools_entry(state.config)
-            browser, browser_url = await anyio.to_thread.run_sync(ensure_browser, state.config)
-            state.browser = browser
-            state.browser_url = browser_url
-
-            logger.info("Browser is ready at %s", browser_url)
-            logger.info("Starting js-reverse-mcp via %s", entry)
-
-            server_params = build_child_command(state.config, browser_url, entry)
-            read_stream, write_stream = await stack.enter_async_context(stdio_client(server_params))
-            session = await stack.enter_async_context(ClientSession(read_stream, write_stream))
-            await session.initialize()
-
-            state.child_session = session
-            state.child_tools = await fetch_all_child_tools(session)
-            logger.info("Loaded %d devtools tools from child MCP", len(state.child_tools))
-
-            yield state
+            runtime.bind_exit_stack(stack)
+            yield runtime
 
     server = Server(
         name="drissionpage-devtools",
@@ -288,24 +331,12 @@ def make_server(state: ProxyState) -> Server:
 
     @server.list_tools()
     async def list_tools() -> list[types.Tool]:
-        return state.child_tools
+        return await runtime.list_tools()
 
     async def call_tool_handler(req: types.CallToolRequest) -> types.ServerResult:
-        if state.child_session is None:
-            return server._make_error_result("Child devtools MCP session is not initialized.")
-
         try:
-            result = await state.child_session.call_tool(
-                req.params.name,
-                arguments=req.params.arguments or {},
-            )
-            return types.ServerResult(
-                types.CallToolResult(
-                    content=list(result.content),
-                    structuredContent=result.structuredContent,
-                    isError=result.isError,
-                )
-            )
+            result = await runtime.call_tool(req.params.name, req.params.arguments or {})
+            return types.ServerResult(result)
         except Exception as exc:
             return server._make_error_result(str(exc))
 
@@ -314,8 +345,8 @@ def make_server(state: ProxyState) -> Server:
 
 
 async def run_stdio_server(config: LauncherConfig) -> None:
-    state = ProxyState(config=config)
-    server = make_server(state)
+    runtime = DevtoolsRuntime(config=config)
+    server = make_server(runtime)
     init_options = server.create_initialization_options(NotificationOptions())
 
     async with stdio_server() as (read_stream, write_stream):

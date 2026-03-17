@@ -5,6 +5,7 @@ __pycache__/
 *.egg-info/
 mcp-config.local.json
 artifacts/
+vendor/js-reverse-mcp/package-lock.json
 vendor/js-reverse-mcp/node_modules/
 vendor/js-reverse-mcp/build/tests/
 vendor/js-reverse-mcp/build/*.tsbuildinfo

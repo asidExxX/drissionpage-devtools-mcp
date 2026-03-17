@@ -56,6 +56,10 @@ chmod +x install.sh
 python3 -m venv .venv
 ./.venv/bin/python -m pip install --upgrade pip
 ./.venv/bin/python -m pip install -e .
+(
+  cd vendor/js-reverse-mcp
+  npm install --ignore-scripts --no-package-lock
+)
 ```
 
 安装完成后可执行命令为：
@@ -63,6 +67,11 @@ python3 -m venv .venv
 ```bash
 ./.venv/bin/drissionpage-devtools-mcp
 ```
+
+`install.sh` 会同时处理两件事：
+
+- 创建 Python 虚拟环境并安装当前包
+- 在 `vendor/js-reverse-mcp/` 下补齐运行时所需的 Node 依赖
 
 ## mcpServers 配置
 
@@ -171,6 +180,7 @@ python3 -m venv .venv
 - `--chrome-arg` 是传给 `DrissionPage` 启动的浏览器实例本身的。
 - 当 `--chrome-arg` 的值本身以 `--` 开头时，推荐写成 `--chrome-arg=--xxx`。
 - `--` 后面的参数会继续转发给内部的 `js-reverse-mcp`。
+- MCP 进程启动后不会立刻拉起浏览器；会在第一次真正调用工具时再懒启动浏览器和子 MCP。
 - 不要再额外传 `--browserUrl` 或 `--wsEndpoint`，统一服务会自动设置。
 - 如果 `vendor/js-reverse-mcp/build/src/index.js` 缺失，服务会尝试在 `vendor/js-reverse-mcp` 下执行一次 `npm run build`。
 - 当前实现默认不会在退出时主动关闭已存在的浏览器实例，避免误关你正在使用的窗口。
